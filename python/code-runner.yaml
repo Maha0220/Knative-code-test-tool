@@ -7,6 +7,6 @@ spec:
   template:
     spec:
       containers:
-        - image: cjs7433/pytest:1
+        - image: cjs7433/pytest:3
           ports:
             - containerPort: 8080
