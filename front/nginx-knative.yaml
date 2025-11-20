@@ -1,0 +1,35 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: nginx-app
+  namespace: default
+spec:
+  # ▼▼▼▼▼▼▼▼▼▼▼▼▼ canary. ▼▼▼▼▼▼▼▼▼▼▼▼▼
+  traffic:
+  - tag: stable
+    revisionName: nginx-app-00001  # 1단계에서 확인한 v1 리비전 이름 (90%)
+    percent: 50
+  - tag: candidate 
+    latestRevision: true # 새롭게 생성될 v2 리비전 (10%)
+    percent: 50
+  # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+  template:
+    metadata:
+      annotations:
+        # [핵심] 주석을 제거하고 상시 구동 설정을 활성화
+        autoscaling.knative.dev/minScale: "1" 
+        # Istio 사이드카 주입 (필수)
+        sidecar.istio.io/inject: "true"
+    spec:
+      containers: # <-- [containers] 블록 시작
+      - image: cjs7433/pynginx:5 # <-- 리스트 항목은 이 위치에 Dash(-)와 함께 시작
+        ports:
+        - containerPort: 8080
+        volumeMounts:
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+      
+      volumes: # <-- [volumes] 블록 시작 (containers와 동일한 레벨로 조정)
+      - name: nginx-config
+        configMap:
+          name: nginx-conf
