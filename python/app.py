@@ -5,49 +5,44 @@ import builtins
 
 app = Flask(__name__)
 
-# 실행 제한 시간 (초)
 TIMEOUT = 10
 
-# 허용된 내장 함수만 남기기
 SAFE_BUILTINS = {
-    'abs': abs,
-    'all': all,
-    'any': any,
-    'bool': bool,
-    'dict': dict,
-    'enumerate': enumerate,
-    'float': float,
-    'int': int,
-    'len': len,
-    'list': list,
-    'max': max,
-    'min': min,
-    'range': range,
-    'str': str,
-    'sum': sum,
-    'print': print,
+    'abs': abs, 'all': all, 'any': any, 'bool': bool,
+    'dict': dict, 'enumerate': enumerate, 'float': float,
+    'int': int, 'len': len, 'list': list, 'max': max,
+    'min': min, 'range': range, 'str': str, 'sum': sum,
 }
 
-def run_function(code, func_name, func_args, return_dict):
+def run_in_process(code, func_name, func_args, conn):
     try:
-        # 제한된 내장 함수만 허용
         local_vars = {}
         global_vars = {"__builtins__": SAFE_BUILTINS}
 
-        # 코드 실행
         exec(code, global_vars, local_vars)
 
         if func_name not in local_vars:
-            return_dict['status'] = 'error'
-            return_dict['message'] = f"Function {func_name} not defined"
+            conn.send({
+                "status": "error",
+                "message": f"Function {func_name} not defined"
+            })
+            conn.close()
             return
 
         output = local_vars[func_name](*func_args)
-        return_dict['status'] = 'success'
-        return_dict['output'] = output
+
+        conn.send({
+            "status": "success",
+            "output": output
+        })
     except Exception:
-        return_dict['status'] = 'error'
-        return_dict['message'] = traceback.format_exc()
+        conn.send({
+            "status": "error",
+            "message": traceback.format_exc()
+        })
+    finally:
+        conn.close()
+
 
 @app.route("/run", methods=["POST"])
 def run_code():
@@ -58,15 +53,11 @@ def run_code():
     results = []
 
     for idx, tc in enumerate(test_cases):
-        manager = multiprocessing.Manager()
-        return_dict = manager.dict()
-        func_name = tc.get("function")
-        func_args = tc.get("input", [])
-        expected = tc.get("expected")
+        parent_conn, child_conn = multiprocessing.Pipe()
 
         p = multiprocessing.Process(
-            target=run_function,
-            args=(code, func_name, func_args, return_dict)
+            target=run_in_process,
+            args=(code, tc["function"], tc["input"], child_conn)
         )
         p.start()
         p.join(TIMEOUT)
@@ -80,23 +71,25 @@ def run_code():
             })
             continue
 
-        if return_dict['status'] == 'success':
-            status = 'pass' if return_dict['output'] == expected else 'fail'
+        if parent_conn.poll():
+            res = parent_conn.recv()
+        else:
+            res = {"status": "error", "message": "No response from execution process"}
+
+        if res["status"] == "success":
+            output = res["output"]
+            status = "pass" if output == tc["expected"] else "fail"
             results.append({
                 "test_case": idx,
                 "status": status,
-                "output": return_dict['output'],
-                "expected": expected
+                "output": output,
+                "expected": tc["expected"]
             })
         else:
             results.append({
                 "test_case": idx,
                 "status": "error",
-                "message": return_dict.get('message', 'Unknown error')
+                "message": res["message"]
             })
 
     return jsonify(results)
-
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080)
