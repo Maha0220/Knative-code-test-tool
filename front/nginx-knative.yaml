@@ -26,7 +26,7 @@ spec:
         sidecar.istio.io/inject: "true"
     spec:
       containers: # <-- [containers] 블록 시작
-      - image: cjs7433/pynginx:5 # <-- 리스트 항목은 이 위치에 Dash(-)와 함께 시작
+      - image: cjs7433/pynginx:6 # <-- 리스트 항목은 이 위치에 Dash(-)와 함께 시작
         ports:
         - containerPort: 8080
         volumeMounts:
