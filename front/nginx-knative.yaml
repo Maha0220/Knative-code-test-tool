@@ -9,9 +9,11 @@ spec:
   - tag: stable
     revisionName: nginx-app-00001  # 1단계에서 확인한 v1 리비전 이름 (50%)
     percent: 50
+    latestRevision: false
   - tag: candidate 
-    latestRevision: true # 새롭게 생성될 v2 리비전 (50%)
+    revisionName: nginx-app-00002  # 1단계에서 확인한 v1 리비전 이름 (50%)
     percent: 50
+    latestRevision: false
   # ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
   template:
     metadata:
